@@ -1,79 +1,82 @@
 // @flow
-
-const compose = (...fns) =>
-  fns.reduceRight((prevFn, nextFn) =>
-    (...args) => nextFn(prevFn(...args)),
-    value => value
-  )
-
-type PopulationCanvasParam = {
+export type CanvasConfig = {
   width: number,
   height: number,
   node: HTMLElement,
-};
-
-type PopulationData = Array<{
-  type: string | number,
-  position: {
-    x: number,
-    y: number,
-  },
-  width: ?number,
-  height: ?number,
-  path: ?Array<{ x: number, y: number  }>,
-  speed: ?{
-    value: number,
-    direction: 'up' | 'right' | 'down' | 'left'
-  },
-  see: ?number,
-}>;
-
-const defaultCanvasConfig = {
-  width: 300,
-  height: 300,
 }
 
-const getPositionWithSpeed = ({x, y}, speed: number, dir: 'up' | 'right' | 'down' | 'left') => {
-  switch(dir) {
-    case 'up': {
-      return {
-        x,
-        y: y - speed,
-      }
-    }
-    case 'right': {
-      return {
-        x: x + speed,
-        y,
-      }
-    }
-    case 'down': {
-      return {
-        x,
-        y: y + speed,
-      }
-    }
-    case 'left': {
-      return {
-        x: x - speed,
-        y,
-      }
-    }
-    default : {
-      return { x, y }
-    }
+export type SceneConfig = {
+  width: number,
+  height: number,
+  ceilWidth: number,
+  ceilHeight: number,
+  zoom: number,
+}
+
+export type UnitConfig = {
+  x: number,
+  y: number,
+  color: string,
+  params: mixed,
+}
+
+export type Coords = {
+  x: number,
+  y: number,
+}
+
+export class Scene {
+  map: Array<Array<mixed>>;
+  ceilWidth: number;
+  ceilHeight: number;
+
+  constructor({
+    width = 3,
+    height = 3,
+    ceilWidth = 10,
+    ceilHeight = 10,
+    zoom = 1 }: SceneConfig) {
+
+    this.map = Array.from({ length: height }, () => Array.from({ length: width }, () => 0))
+    this.ceilWidth = ceilWidth
+    this.ceilHeight = ceilHeight
+  }
+
+  add(why: mixed, { x, y }: Coords) {
+    this.map[y][x] = why
+    return why
+  }
+
+  move(from: Coords = null, to: Coords = null) {
+    const { x: fx, y: fy } = from
+    const { x: tx, y: ty } = to
+    this.map[ty][tx] = this.map[fy][fx]
+    this.map[fy][fx] = 0
   }
 }
 
-function population(canvasConfig: PopulationCanvasParam = defaultCanvasConfig, data: PopulationData = []) {
+export class Unit {
+  color: number;
+  position: Coords;
+  params: mixed;
+
+  constructor({ x, y, color, params = {}}: UnitConfig) {
+    this.color = color
+    this.position = { x, y }
+    this.params = params
+  }
+}
+
+
+export function createCanvas(canvasConfig: CanvasConfig): CanvasRenderingContext2D {
   const domCanvas = document.createElement('canvas')
-  
+
   domCanvas.style.border = '1px solid'
 
   Object.entries({
     width: canvasConfig.width,
     height: canvasConfig.height
-  }).forEach(([key, value ]) => {
+  }).forEach(([key, value]) => {
     domCanvas.setAttribute(key, value)
   })
 
@@ -81,43 +84,40 @@ function population(canvasConfig: PopulationCanvasParam = defaultCanvasConfig, d
 
   const ctx = domCanvas.getContext('2d')
 
-  const fps = 30
-
-  let state: PopulationData = data
-
-
-  const draw = () => {
-    ctx.clearRect(0, 0, canvasConfig.width, canvasConfig.height)
-
-    state = state.map((it) => {
-      if (it.speed) {
-        it.position = getPositionWithSpeed(it.position, it.speed.value / fps, it.speed.direction)
-      }
-
-      ctx.fillRect(
-        Math.floor( it.position.x - it.position.x % 10),
-        Math.floor( it.position.y - it.position.y % 10),
-        it.width || 10,
-        it.height || 10,
-      )
-
-      return it
-    })
-  }
-
-  let gameStop: bool = false;
-
-  const game = () => {
-    if (gameStop === true) return
-    draw()
-    setTimeout(game, 1000 / fps)
-  }
-
-  return {
-    play: () => { gameStop = false; game() },
-    stop: () => { gameStop = true }
-  }
+  return ctx
 }
 
 
-export default population
+export function game(fps: number, ctx: CanvasRenderingContext2D, canvasConfig: CanvasConfig, scene: Scene) {
+  let gameStop: bool = false;
+
+  const draw = () => {
+    if (gameStop === true) return
+
+    ctx.clearRect(0, 0, canvasConfig.width, canvasConfig.height)
+
+    scene.map.forEach((row, iy) => {
+      row.forEach((unit, ix) => {
+
+        ctx.strokeRect(ix * scene.ceilWidth, iy * scene.ceilWidth, scene.ceilWidth, scene.ceilHeight)
+
+        if (unit === 0) return
+
+        ctx.fillStyle = unit.color || '#000'
+        ctx.fillRect(
+          (ix * scene.ceilWidth),
+          (iy * scene.ceilHeight),
+          scene.ceilWidth,
+          scene.ceilHeight
+        )
+      })
+    })
+
+    setTimeout(draw, 1000 / fps)
+  }
+
+  return {
+    play: () => { gameStop = false; draw() },
+    pause: () => { gameStop = true }
+  }
+}
