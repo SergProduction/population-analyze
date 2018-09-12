@@ -10,14 +10,15 @@ export type SceneConfig = {
   height: number,
   ceilWidth: number,
   ceilHeight: number,
-  zoom: number,
+  zoom?: number,
 }
 
 export type UnitConfig = {
   x: number,
   y: number,
   color: string,
-  params: mixed,
+  type?: string,
+  params?: mixed,
 }
 
 export type Coords = {
@@ -25,8 +26,21 @@ export type Coords = {
   y: number,
 }
 
+export class Unit {
+  color: string;
+  position: Coords;
+  type: string;
+  params: mixed;
+
+  constructor({ x, y, color, type = 'unit', params = {}}: UnitConfig) {
+    this.color = color
+    this.position = { x, y }
+    this.type = type
+    this.params = params
+  }
+}
 export class Scene {
-  map: Array<Array<mixed>>;
+  map: Array<Array<Unit | number>>;
   ceilWidth: number;
   ceilHeight: number;
 
@@ -42,28 +56,16 @@ export class Scene {
     this.ceilHeight = ceilHeight
   }
 
-  add(why: mixed, { x, y }: Coords) {
+  add(why: Unit, { x, y }: Coords) {
     this.map[y][x] = why
     return why
   }
 
-  move(from: Coords = null, to: Coords = null) {
+  move(from: Coords, to: Coords) {
     const { x: fx, y: fy } = from
     const { x: tx, y: ty } = to
     this.map[ty][tx] = this.map[fy][fx]
     this.map[fy][fx] = 0
-  }
-}
-
-export class Unit {
-  color: number;
-  position: Coords;
-  params: mixed;
-
-  constructor({ x, y, color, params = {}}: UnitConfig) {
-    this.color = color
-    this.position = { x, y }
-    this.params = params
   }
 }
 
@@ -75,7 +77,7 @@ export function createCanvas(canvasConfig: CanvasConfig): CanvasRenderingContext
 
   Object.entries({
     width: canvasConfig.width,
-    height: canvasConfig.height
+    height: canvasConfig.height,
   }).forEach(([key, value]) => {
     domCanvas.setAttribute(key, value)
   })
@@ -88,20 +90,24 @@ export function createCanvas(canvasConfig: CanvasConfig): CanvasRenderingContext
 }
 
 
-export function game(fps: number, ctx: CanvasRenderingContext2D, canvasConfig: CanvasConfig, scene: Scene) {
+export function render(fps: number, ctx: CanvasRenderingContext2D, canvasConfig: CanvasConfig, scene: Scene) {
   let gameStop: bool = false;
+
+  let preRender = () => {}
 
   const draw = () => {
     if (gameStop === true) return
 
     ctx.clearRect(0, 0, canvasConfig.width, canvasConfig.height)
 
+    preRender()
+
     scene.map.forEach((row, iy) => {
       row.forEach((unit, ix) => {
 
         ctx.strokeRect(ix * scene.ceilWidth, iy * scene.ceilWidth, scene.ceilWidth, scene.ceilHeight)
 
-        if (unit === 0) return
+        if (!(unit instanceof Unit)) return
 
         ctx.fillStyle = unit.color || '#000'
         ctx.fillRect(
@@ -118,6 +124,7 @@ export function game(fps: number, ctx: CanvasRenderingContext2D, canvasConfig: C
 
   return {
     play: () => { gameStop = false; draw() },
-    pause: () => { gameStop = true }
+    pause: () => { gameStop = true },
+    preRender: (cb: () => void) => (preRender = cb),
   }
 }
