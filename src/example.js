@@ -1,5 +1,7 @@
 // @flow
 import { Scene, Unit, createCanvas, render } from './lib'
+import type { Coords } from './lib'
+
 
 function random(min: number, max: number) {
   let rand = min - 0.5 + Math.random() * (max - min + 1)
@@ -12,8 +14,8 @@ const randomColor = (): string => "#"+((1<<24)*Math.random()|0).toString(16)
 
 const domRoot = window.document.getElementById('root')
 
-const square = <T>(sourseMatrix: Array<Array<T>> ): Array<Array<T>> => {
-  
+function sliceMapSquare<T>(sourseMatrix: Array<Array<T>>, {x, y}: Coords, r:number ): Array<Array<T>> {
+  return sourseMatrix.slice(y-r-1, y+r).map(row => row.slice(x-r-1, x+r))
 }
 
 // -------------- confins --------------
@@ -44,7 +46,7 @@ class UnitMotion extends Unit {
 
     switch (key) {
       case 'w': { newPosition.y -= 1; break }
-      case 'a': { newPosition.x -= 1; break}
+      case 'a': { newPosition.x -= 1; break }
       case 's': { newPosition.y += 1; break }
       case 'd': { newPosition.x += 1; break }
       default: {}
@@ -54,7 +56,7 @@ class UnitMotion extends Unit {
 
     this.position = newPosition
 
-    this.params.vision = scene.map[newPosition.y]
+    this.params.vision = sliceMapSquare(scene.map, newPosition, 1)
   }
 }
 
@@ -73,7 +75,7 @@ const food = [
   {x: random(0, sceneConfig.width), y: random(0, sceneConfig.height)},
   {x: random(0, sceneConfig.width), y: random(0, sceneConfig.height)},
 ].map((coords) => {
-  const bot =  new Unit({ ...coords, type: 'food', color: '#191818' })
+  const bot =  new Unit({ ...coords, type: 'food', color: '#cdda39' })
   scene.add(bot, bot.position)
   return bot
 })
@@ -95,7 +97,7 @@ const ctx = createCanvas(canvasConfig)
 const game = render(1, ctx, canvasConfig, scene)
 
 game.preRender(() => {
-  console.log('preRender')
+  // console.log('preRender')
 })
 
 game.play()
@@ -104,3 +106,4 @@ window.game = game
 
 window.scene = scene
 
+window.pers = pers

@@ -18,7 +18,7 @@ export type UnitConfig = {
   y: number,
   color: string,
   type?: string,
-  params?: mixed,
+  params?: {[string]: mixed},
 }
 
 export type Coords = {
@@ -30,7 +30,7 @@ export class Unit {
   color: string;
   position: Coords;
   type: string;
-  params: mixed;
+  params: {[string]: mixed};
 
   constructor({ x, y, color, type = 'unit', params = {}}: UnitConfig) {
     this.color = color
